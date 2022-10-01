@@ -1,8 +1,8 @@
 ---
 title: "Bike Case"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 date: "2022-09-30"
 ---
 
@@ -297,3 +297,5 @@ processed_tripdata %>%
              ) +
         facet_wrap(~member_casual)
 ```
+
+
