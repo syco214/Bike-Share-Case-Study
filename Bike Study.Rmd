@@ -1,0 +1,299 @@
+---
+title: "Bike Case"
+output:
+  html_document: default
+  pdf_document: default
+date: "2022-09-30"
+---
+
+# Ask
+
+**Company:** Cyclist Size: 5,824 Bicycles Year Launched: 2016
+
+**Number of Stations:** 692
+
+**State of Operation:** Chicago
+
+**Goal:** Design marketing Strategies aimed at converting casual riders into annual members.
+
+**Business Task:** To determine how do annual members and casual riders use Cyclistic bikes differently
+
+#Prepare
+
+The data collected would come from September 2021 to August 2022.
+
+1.  Best place to store the data would be in the Google Cloud Platform
+2.  This allows me to organize all the tables and compile them together with the use of Big Query.
+3.  This allows for easy access of data since everything is stored in the cloud.
+4.  This allows for protection of data ensuring that the data follows encryption practices.
+
+The data contains the following columns, this information would determine the ride habits of both members and non members.
+
+1.  Ride ID
+
+2.  Rideable Type
+
+3.  Started At
+
+4.  Ended At
+
+5.  Start Station Name
+
+6.  Start Station ID
+
+7.  End Station Name
+
+8.  End Station ID
+
+9.  Start Latitude
+
+10. Start Longitude
+
+11. End Latitude
+
+12. End Longitude
+
+13. Member Casual
+
+The data was analyzed and no discrepancies were encountered. The field names of the data and their corresponding file type were correct across all files.
+
+The data from each month was compiled into a singular table in order to better analyze the data.
+
+*First a new table was created to store the data*
+
+![](images/second.PNG)
+
+*Then a combination of UNION ALL statements were used to compile the data*
+
+![](images/first.PNG)
+
+# Process
+
+## Step 1: Install Packages
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(lubridate)
+library(scales)
+library(tinytex)
+```
+
+## Step 2: Read CSV and Convert Values to String
+
+```{r}
+processed_tripdata <- read_csv(file = paste("bikedata.csv", sep=""))
+str(processed_tripdata)
+```
+
+## Step 3: Format Columns
+
+```{r}
+processed_tripdata$started_at <- ymd_hms(processed_tripdata$started_at)
+processed_tripdata$ended_at <- ymd_hms(processed_tripdata$ended_at)
+processed_tripdata$duration <- as.numeric(difftime(processed_tripdata$ended_at, processed_tripdata$started_at, units="min"))
+processed_tripdata$month <- format(processed_tripdata$started_at, format="%B") 
+#Formats into month name
+processed_tripdata$day_of_week <- format(processed_tripdata$started_at, format="%A")
+#Formats into weekday name
+processed_tripdata$hour <- format(processed_tripdata$started_at, format="%H")
+#Formats into hour in 24 hour format
+processed_tripdata <- processed_tripdata %>% filter(duration > 0)
+#Remove trips that have a duration of 0 and less
+processed_tripdata$member_casual<-replace(processed_tripdata$member_casual,processed_tripdata$member_casual=="casual","Casual")
+processed_tripdata$member_casual<-replace(processed_tripdata$member_casual,processed_tripdata$member_casual=="member","Member")
+#Change the casing of the member_casual variable 
+options(scipen=999)
+#To use decimals instead of scientific notation
+```
+
+# Analyze
+
+```{r}
+#This plot shows the distribution of customers both members and casual riders, across the duration of each bike trip. 
+ggplot(processed_tripdata, aes(x=duration, fill=member_casual)) +
+    geom_histogram(binwidth = 1, color="white") +
+    xlim(0, 100) +
+    xlab("Duration (Minutes)") +
+    ylab("No. of Trips") +
+    theme_linedraw() +
+    ggtitle("Customer Time Spent on Bike Trip Distribution") +
+    theme(plot.title = element_text(size = 15, face = "bold", hjust = 0.5),
+            legend.justification = c(1,0),
+            legend.position = c(0.8,0.5)
+         ) +
+    guides(fill=guide_legend(title="Customer Type")) +
+    scale_fill_manual(values=c('#FF992D','#066CCD'), limits = c("Member", "Casual")) +
+    coord_flip()
+```
+
+```{r}
+#This plot shows the distribution of customers both members and casual riders, across the numbers of trips per day of the week
+processed_tripdata %>%
+    select(day_of_week, member_casual) %>%
+    group_by(day_of_week, member_casual) %>%
+    count() %>% 
+    ggplot(aes(x=factor(day_of_week, level=c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 
+                                               'Friday', 'Saturday', 'Sunday')), 
+               y=n, fill=member_casual)) +
+        geom_bar(stat="identity", position=position_dodge())+
+        coord_flip()+
+        scale_fill_manual(values=c('#FF992D','#066CCD'), limits = c("Member", "Casual")) +
+        xlab("Day of Week") +
+        ylab("No. of Trips") +
+        theme_linedraw() +
+        ggtitle("Day of Week Bike Trip Distribution") +
+        guides(fill=guide_legend(title="Customer Type")) +
+        theme(plot.title = element_text(size = 15, face = "bold", hjust = 0.5),
+                legend.justification = c(1,0),
+                legend.position = c(0.97,0.1)
+             )
+```
+
+```{r}
+#This plot shows the distribution of customers both members and casual riders, across the numbers of trips per month
+processed_tripdata %>%
+    select(month, member_casual) %>%
+    group_by(month, member_casual) %>%
+    count() %>%
+    ggplot(aes(x=factor(month, level=c('January', 'February', 'March', 'April', 'May', 
+                                         'June', 'July', 'August', 'September', 'October', 'November', 'December')), 
+                        y=n, fill=member_casual)) +
+        geom_bar(stat="identity", position=position_dodge())+
+        coord_flip()+
+        scale_fill_manual(values=c('#FF992D','#066CCD'), limits = c("Member", "Casual")) +
+        xlab("Month") +
+        ylab("No. of Trips") +
+        theme_linedraw() +
+        ggtitle("Monthly Bike Trip Distribution") +
+        guides(fill=guide_legend(title="Customer Type")) +
+        theme(plot.title = element_text(size = 15, face = "bold", hjust = 0.5),
+                legend.justification = c(1,0),
+                legend.position = c(0.8,0.1)
+             )
+
+```
+
+```{r}
+#These plots show the number of hours in a day members and casual customers ride bikes on both weekdays and weekends. 
+weekend <- processed_tripdata %>%
+    select(day_of_week, hour, member_casual) %>%
+    filter(day_of_week == 'Saturday' | day_of_week == 'Sunday') %>%
+    group_by(hour, member_casual) %>%
+    count()
+
+weekend$weekend_weekday = 'weekends'
+
+weekday <- processed_tripdata %>%
+    select(day_of_week, hour, member_casual) %>%
+    filter(day_of_week != 'Saturday' & day_of_week != 'Sunday') %>%
+    group_by(hour, member_casual) %>%
+    count()
+
+weekday$weekend_weekday = 'weekdays'
+
+weekend <- rbind(weekend, weekday)
+
+weekend %>%
+    ggplot(aes(x=hour, y=n, fill=member_casual)) +
+        geom_bar(stat="identity", position=position_dodge())+
+        coord_flip()+
+        scale_fill_manual(values=c('#FF992D','#066CCD'), limits = c("Member", "Casual")) +
+        xlab("Hour of a Day") +
+        ylab("No. of Trips") +
+        theme_linedraw() +
+        ggtitle("Hourly Bike Trip Distribution") +
+        guides(fill=guide_legend(title="Customer Type")) +
+        theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5),
+                legend.justification = c(1,0),
+                legend.position = c(0.97,0.1)
+             ) +
+        facet_wrap(~weekend_weekday)
+
+```
+
+```{r}
+#These plots shows the distribution of customers both members and casual riders, across the different bike types
+casual <- processed_tripdata %>%
+    select(member_casual, rideable_type) %>%
+    filter(member_casual == "Casual") %>%
+    group_by(rideable_type, member_casual) %>%
+    count()
+
+member <- processed_tripdata %>%
+    select(member_casual, rideable_type) %>%
+    filter(member_casual == "Member") %>%
+    group_by(rideable_type, member_casual) %>%
+    count() 
+
+customer <- rbind((casual%>%mutate(countT= sum(casual$n)) %>%
+              group_by(rideable_type, add=TRUE) %>%
+              mutate(per=n/countT, per_label=paste0(round(100*n/countT,2),"%"))), 
+             (member%>%mutate(countT= sum(member$n)) %>%
+              group_by(rideable_type, add=TRUE) %>%
+              mutate(per=n/countT, per_label=paste0(round(100*n/countT,2),"%"))))
+
+ggplot(customer, aes(x="", y=per, fill=rideable_type)) +
+        geom_col() +
+        coord_polar(theta = "y") +
+        scale_y_continuous(labels = scales::percent) +
+        geom_text(aes(label = per_label), position = position_stack(vjust = 0.5), color="white") +
+        scale_fill_manual(values=c('#FF992D','#066CCD','#AAAAAA'), limits = c("classic_bike", "docked_bike", "electric_bike")) +
+        theme(axis.ticks = element_blank(),
+            axis.title = element_blank(),
+            axis.text = element_text(size = 0), 
+            panel.background = element_rect(fill = "white"),
+            plot.title = element_text(size = 12, face = "bold", hjust = 0.5)) +
+        ggtitle("Bike Type Distribution Among Casual Customers and Members") +
+        guides(fill=guide_legend(title="Bike Type")) +
+        facet_wrap(~member_casual)
+
+```
+
+```{r}
+#These plots shows the distribution of the different bike types based on the day of the week
+processed_tripdata %>%
+    select(day_of_week, rideable_type, member_casual) %>%
+    group_by(day_of_week, rideable_type, member_casual) %>%
+    count() %>% 
+    ggplot(aes(x=factor(day_of_week, level=c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 
+                                               'Friday', 'Saturday', 'Sunday')), 
+               y=n, fill=rideable_type)) +
+        geom_bar(stat="identity", position=position_dodge())+
+        coord_flip()+
+        scale_fill_manual(values=c('#FF992D','#066CCD','#AAAAAA'), limits = c("classic_bike","docked_bike","electric_bike")) +
+        xlab("Day of Week") +
+        ylab("No. of Trips") +
+        theme_linedraw() +
+        ggtitle("Day of Week Bike Type Distribution") +
+        guides(fill=guide_legend(title="Bike Type")) +
+        theme(plot.title = element_text(size = 15, face = "bold", hjust = 0.5),
+                legend.justification = c(1,0),
+                legend.position = c(0.97,0.1)
+             ) +
+        facet_wrap(~member_casual)
+```
+
+```{r}
+#These plots shows the distribution of the different bike types based on the month
+processed_tripdata %>%
+    select(month, rideable_type, member_casual) %>%
+    group_by(month, rideable_type, member_casual) %>%
+    count() %>% 
+    ggplot(aes(x=factor(month, level=c('January', 'February', 'March', 'April', 'May', 
+                                         'June', 'July', 'August', 'September', 'October', 'November', 'December')), 
+               y=n, fill=rideable_type)) +
+        geom_bar(stat="identity", position=position_dodge())+
+        coord_flip()+
+        scale_fill_manual(values=c('#FF992D','#066CCD','#AAAAAA'), limits = c("classic_bike", "docked_bike", "electric_bike")) +
+        xlab("Month") +
+        ylab("No. of Trips") +
+        theme_linedraw() +
+        ggtitle("Monthly Bike Type Distribution") +
+        guides(fill=guide_legend(title="Bike Type")) +
+        theme(plot.title = element_text(size = 15, face = "bold", hjust = 0.5),
+                legend.justification = c(1,0),
+                legend.position = c(0.97,0.1)
+             ) +
+        facet_wrap(~member_casual)
+```
